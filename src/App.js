@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
 const tempWatchedData = [
   {
@@ -30,7 +30,6 @@ const key = 'd02f442';
 export default function App() {
   // States
   const [query, setQuery] = useState("Interstellar");
-  const [selectedId, setSelectedId] = useState(null);
   const [movies, setMovies] = useState([]);  
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
@@ -41,34 +40,51 @@ export default function App() {
   const avgUserRating = average(watched.map((movie) => movie.userRating));
   const avgRuntime = average(watched.map((movie) => movie.runtime));
 
-  useEffect(()=>{
-    if(query.length>=3){
-      setIsLoading(true);
+  useEffect(() => {
+    async function fetchMovies() {
       try {
-        fetch('http://www.omdbapi.com/?apikey='+key+'&s='+query+'').then(res => {         
-          res.json().then( data => {
-            console.log(data.Search)
-            setMovies(data.Search);
-            setError("");
-          })
-        });
+        setIsLoading(true);
+        const res = await fetch(`http://www.omdbapi.com/?apikey=${key}&s=${query}`);
+        const data = await res.json();
+
+        if (data.Response === "False") throw new Error(data.Error);
+
+        setMovies(data.Search);
+        setError("");
       } catch (err) {
-        if (err.name !== "AbortError") {
-          console.log(err.message);
-          setError(err.message);
-        }
+        setMovies([]);
+        setError(err.message);
       } finally {
         setIsLoading(false);
       }
-    }else{
+    }
+
+    if (query.length < 3) {
       setMovies([]);
       setError("");
       return;
     }
+
+    fetchMovies();
   }, [query]);
 
-  function handleSelectMovie(id) {
-    setSelectedId((selectedId) => (id === selectedId ? null : id));
+  async function handleAddMovie(id) {
+    if (watched.some((movie) => movie.imdbID === id)) return;
+
+    const res = await fetch(`http://www.omdbapi.com/?apikey=${key}&i=${id}`);
+    const data = await res.json();
+
+    const newWatchedMovie = {
+      imdbID: data.imdbID,
+      Title: data.Title,
+      Year: data.Year,
+      Poster: data.Poster,
+      runtime: Number(data.Runtime.split(" ").at(0)),
+      imdbRating: Number(data.imdbRating),
+      userRating: Number(data.imdbRating),
+    };
+
+    setWatched((watched) => [...watched, newWatchedMovie]);
   }
 
   return (
@@ -79,8 +95,8 @@ export default function App() {
     
       <main className="main">
         <Box>
-          {isLoading && <p className="loader">Loading...</p>}
-          {!isLoading && !error && <MovieList movies={movies} onSelectMovie={handleSelectMovie} />
+          {isLoading && <p className="loader">Carregando...</p>}
+          {!isLoading && !error && <MovieList movies={movies} onSelectMovie={handleAddMovie} />
           }
           {error && <p className="error"><span>⛔️</span> {error}</p>}
         </Box>
@@ -88,11 +104,11 @@ export default function App() {
         <Box>
           <>
             <div className="summary">
-                <h2>Movies you watched</h2>
+                <h2>Filmes Assistidos</h2>
                 <div>
                   <p>
                     <span>#️⃣</span>
-                    <span>{watched.length} movies</span>
+                    <span>{watched.length}</span>
                   </p>
                   <p>
                     <span>⭐️</span>
