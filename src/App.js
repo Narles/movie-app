@@ -71,6 +71,15 @@ export default function App() {
   async function handleAddMovie(id) {
     if (watched.some((movie) => movie.imdbID === id)) return;
 
+    const rating = window.prompt("Dê uma nota de 0 a 10 para este filme:");
+    if (rating === null) return;
+
+    const userRating = Number(rating);
+    if (rating.trim() === "" || Number.isNaN(userRating) || userRating < 0 || userRating > 10) {
+      alert("Nota inválida. Digite um número de 0 a 10.");
+      return;
+    }
+
     const res = await fetch(`http://www.omdbapi.com/?apikey=${key}&i=${id}`);
     const data = await res.json();
 
@@ -81,7 +90,7 @@ export default function App() {
       Poster: data.Poster,
       runtime: Number(data.Runtime.split(" ").at(0)),
       imdbRating: Number(data.imdbRating),
-      userRating: Number(data.imdbRating),
+      userRating,
     };
 
     setWatched((watched) => [...watched, newWatchedMovie]);
