@@ -34,7 +34,6 @@ const key = 'd02f442';
 export default function App() {
   // States
   const [query, setQuery] = useState("Interstellar");
-  const [selectedId, setSelectedId] = useState(null);
   const [movies, setMovies] = useState([]);  
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
@@ -46,45 +45,32 @@ export default function App() {
   const avgRuntime = average(watched.map((movie) => movie.runtime));
 
   useEffect(() => {
-    if (query.length < 3) {
-      setMovies([]);
-      setError("");
-      setIsLoading(false);
-      return;
-    }
-
     const controller = new AbortController();
 
     async function fetchMovies() {
-      setIsLoading(true);
-      setError("");
-
       try {
-        const response = await fetch(
-          `http://www.omdbapi.com/?apikey=${key}&s=${encodeURIComponent(query)}`,
-          { signal: controller.signal }
-        );
+        setIsLoading(true);
+        const res = await fetch(`http://www.omdbapi.com/?apikey=${key}&s=${query}`, {
+          signal: controller.signal,
+        });
+        const data = await res.json();
 
-        if (!response.ok) throw new Error("Unable to fetch movies.");
+        if (data.Response === "False") throw new Error(data.Error);
 
-        const data = await response.json();
-
-        if (data.Response === "False") {
-          setMovies([]);
-          setError(data.Error);
-          return;
-        }
-
-        setMovies(data.Search ?? []);
+        setMovies(data.Search);
+        setError("");
       } catch (err) {
-        if (err.name !== "AbortError") {
-          console.log(err.message);
-          setMovies([]);
-          setError(err.message);
-        }
+        setMovies([]);
+        setError(err.message);
       } finally {
         if (!controller.signal.aborted) setIsLoading(false);
       }
+    }
+
+    if (query.length < 3) {
+      setMovies([]);
+      setError("");
+      return;
     }
 
     fetchMovies();
@@ -92,8 +78,23 @@ export default function App() {
     return () => controller.abort();
   }, [query]);
 
-  function handleSelectMovie(id) {
-    setSelectedId((selectedId) => (id === selectedId ? null : id));
+  async function handleAddMovie(id) {
+    if (watched.some((movie) => movie.imdbID === id)) return;
+
+    const res = await fetch(`http://www.omdbapi.com/?apikey=${key}&i=${id}`);
+    const data = await res.json();
+
+    const newWatchedMovie = {
+      imdbID: data.imdbID,
+      Title: data.Title,
+      Year: data.Year,
+      Poster: data.Poster,
+      runtime: Number(data.Runtime.split(" ").at(0)),
+      imdbRating: Number(data.imdbRating),
+      userRating: Number(data.imdbRating),
+    };
+
+    setWatched((watched) => [...watched, newWatchedMovie]);
   }
 
   return (
@@ -104,8 +105,8 @@ export default function App() {
     
       <main className="main">
         <Box>
-          {isLoading && <p className="loader">Loading...</p>}
-          {!isLoading && !error && <MovieList movies={movies} onSelectMovie={handleSelectMovie} />
+          {isLoading && <p className="loader">Carregando...</p>}
+          {!isLoading && !error && <MovieList movies={movies} onSelectMovie={handleAddMovie} />
           }
           {error && <p className="error"><span>⛔️</span> {error}</p>}
         </Box>
@@ -113,11 +114,11 @@ export default function App() {
         <Box>
           <>
             <div className="summary">
-                <h2>Movies you watched</h2>
+                <h2>Filmes Assistidos</h2>
                 <div>
                   <p>
                     <span>#️⃣</span>
-                    <span>{watched.length} movies</span>
+                    <span>{watched.length}</span>
                   </p>
                   <p>
                     <span>⭐️</span>
