@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
 const tempWatchedData = [
   {
@@ -45,30 +45,51 @@ export default function App() {
   const avgUserRating = average(watched.map((movie) => movie.userRating));
   const avgRuntime = average(watched.map((movie) => movie.runtime));
 
-  useEffect(()=>{
-    if(query.length>=3){
+  useEffect(() => {
+    if (query.length < 3) {
+      setMovies([]);
+      setError("");
+      setIsLoading(false);
+      return;
+    }
+
+    const controller = new AbortController();
+
+    async function fetchMovies() {
       setIsLoading(true);
+      setError("");
+
       try {
-        fetch('http://www.omdbapi.com/?apikey='+key+'&s='+query+'').then(res => {         
-          res.json().then( data => {
-            console.log(data.Search)
-            setMovies(data.Search);
-            setError("");
-          })
-        });
+        const response = await fetch(
+          `http://www.omdbapi.com/?apikey=${key}&s=${encodeURIComponent(query)}`,
+          { signal: controller.signal }
+        );
+
+        if (!response.ok) throw new Error("Unable to fetch movies.");
+
+        const data = await response.json();
+
+        if (data.Response === "False") {
+          setMovies([]);
+          setError(data.Error);
+          return;
+        }
+
+        setMovies(data.Search ?? []);
       } catch (err) {
         if (err.name !== "AbortError") {
           console.log(err.message);
+          setMovies([]);
           setError(err.message);
         }
       } finally {
-        setIsLoading(false);
+        if (!controller.signal.aborted) setIsLoading(false);
       }
-    }else{
-      setMovies([]);
-      setError("");
-      return;
     }
+
+    fetchMovies();
+
+    return () => controller.abort();
   }, [query]);
 
   function handleSelectMovie(id) {
@@ -152,7 +173,7 @@ function Navbar({movies, children}){
         </div>
         {children}
         <p className="num-results">
-          Found <strong>{movies.length}</strong> results
+          Found <strong>{movies?.length ?? 0}</strong> results
         </p>
       </nav>
   )
