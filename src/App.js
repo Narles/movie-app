@@ -45,10 +45,14 @@ export default function App() {
   const avgRuntime = average(watched.map((movie) => movie.runtime));
 
   useEffect(() => {
+    const controller = new AbortController();
+
     async function fetchMovies() {
       try {
         setIsLoading(true);
-        const res = await fetch(`http://www.omdbapi.com/?apikey=${key}&s=${query}`);
+        const res = await fetch(`http://www.omdbapi.com/?apikey=${key}&s=${query}`, {
+          signal: controller.signal,
+        });
         const data = await res.json();
 
         if (data.Response === "False") throw new Error(data.Error);
@@ -70,6 +74,8 @@ export default function App() {
     }
 
     fetchMovies();
+
+    return () => controller.abort();
   }, [query]);
 
   async function handleAddMovie(id) {
