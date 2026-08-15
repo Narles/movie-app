@@ -23,8 +23,12 @@ const tempWatchedData = [
   },
 ];
 
-const average = (arr) =>
-  arr.reduce((acc, cur, i, arr) => acc + cur / arr.length, 0);
+const average = (values) => {
+  if (values.length === 0) return 0;
+
+  const total = values.reduce((sum, value) => sum + value, 0);
+  return Number((total / values.length).toFixed(2));
+};
 const key = 'd02f442';
 
 export default function App() {
@@ -41,16 +45,24 @@ export default function App() {
   const avgRuntime = average(watched.map((movie) => movie.runtime));
 
   useEffect(() => {
+
+    const controller = new AbortController();
+
     async function fetchMovies() {
+
       try {
         setIsLoading(true);
-        const res = await fetch(`http://www.omdbapi.com/?apikey=${key}&s=${query}`);
-        const data = await res.json();
+        const response = await fetch(
+          `http://www.omdbapi.com/?apikey=${key}&s=${query}`,
+          { signal: controller.signal }
+        );
+        const data = await response.json();
 
-        if (data.Response === "False") throw new Error(data.Error);
+        if (data.Response === "False") throw new Error(data.Error);       
 
-        setMovies(data.Search);
+        setMovies(data.Search ?? []);
         setError("");
+
       } catch (err) {
         setMovies([]);
         setError(err.message);
@@ -66,6 +78,8 @@ export default function App() {
     }
 
     fetchMovies();
+
+    return () => controller.abort();
   }, [query]);
 
   async function handleAddMovie(id) {
@@ -169,11 +183,11 @@ function Navbar({movies, children}){
     <nav className="nav-bar">
         <div className="logo">
           <span role="img">🍿</span>
-          <h1>usePopcorn</h1>
+          <h1>Meus Filmes Preciosos</h1>
         </div>
         {children}
         <p className="num-results">
-          Found <strong>{movies.length}</strong> results
+          Encontrados <strong>{movies?.length ?? 0}</strong> resultados
         </p>
       </nav>
   )
@@ -185,7 +199,7 @@ function Search({ query, setQuery }) {
     <input
       className="search"
       type="text"
-      placeholder="Search movies..."
+      placeholder="Buscar filmes..."
       value={query}
       onChange={(e) => setQuery(e.target.value)}
     />
