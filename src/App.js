@@ -45,25 +45,29 @@ export default function App() {
   const avgRuntime = average(watched.map((movie) => movie.runtime));
 
   useEffect(() => {
+
     const controller = new AbortController();
 
     async function fetchMovies() {
+
       try {
         setIsLoading(true);
-        const res = await fetch(`http://www.omdbapi.com/?apikey=${key}&s=${query}`, {
-          signal: controller.signal,
-        });
-        const data = await res.json();
+        const response = await fetch(
+          `http://www.omdbapi.com/?apikey=${key}&s=${query}`,
+          { signal: controller.signal }
+        );
+        const data = await response.json();
 
-        if (data.Response === "False") throw new Error(data.Error);
+        if (data.Response === "False") throw new Error(data.Error);       
 
-        setMovies(data.Search);
+        setMovies(data.Search ?? []);
         setError("");
+
       } catch (err) {
         setMovies([]);
         setError(err.message);
       } finally {
-        if (!controller.signal.aborted) setIsLoading(false);
+        setIsLoading(false);
       }
     }
 
@@ -81,6 +85,15 @@ export default function App() {
   async function handleAddMovie(id) {
     if (watched.some((movie) => movie.imdbID === id)) return;
 
+    const rating = window.prompt("Dê uma nota de 0 a 10 para este filme:");
+    if (rating === null) return;
+
+    const userRating = Number(rating);
+    if (rating.trim() === "" || Number.isNaN(userRating) || userRating < 0 || userRating > 10) {
+      alert("Nota inválida. Digite um número de 0 a 10.");
+      return;
+    }
+
     const res = await fetch(`http://www.omdbapi.com/?apikey=${key}&i=${id}`);
     const data = await res.json();
 
@@ -91,7 +104,7 @@ export default function App() {
       Poster: data.Poster,
       runtime: Number(data.Runtime.split(" ").at(0)),
       imdbRating: Number(data.imdbRating),
-      userRating: Number(data.imdbRating),
+      userRating,
     };
 
     setWatched((watched) => [...watched, newWatchedMovie]);
@@ -170,11 +183,11 @@ function Navbar({movies, children}){
     <nav className="nav-bar">
         <div className="logo">
           <span role="img">🍿</span>
-          <h1>usePopcorn</h1>
+          <h1>Meus Filmes Preciosos</h1>
         </div>
         {children}
         <p className="num-results">
-          Found <strong>{movies?.length ?? 0}</strong> results
+          Encontrados <strong>{movies?.length ?? 0}</strong> resultados
         </p>
       </nav>
   )
@@ -186,7 +199,7 @@ function Search({ query, setQuery }) {
     <input
       className="search"
       type="text"
-      placeholder="Search movies..."
+      placeholder="Buscar filmes..."
       value={query}
       onChange={(e) => setQuery(e.target.value)}
     />
